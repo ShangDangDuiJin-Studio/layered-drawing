@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>不织布自动分层 · PDF 导出</title>
+  <style>
+    :root {
+      --bg: #f4f4f6;
+      --card: #fff;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
+    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      margin-bottom: 1rem;
+    }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
+    input[type="file"], input[type="range"], input[type="number"] {
+      width: 100%;
+      margin-bottom: 0.75rem;
+    }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+    .range-val { font-size: 0.8rem; color: var(--muted); float: right; }
+    button {
+      width: 100%;
+      padding: 0.85rem 1rem;
+      font-size: 1rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      margin-top: 0.5rem;
+    }
+    button:hover { background: var(--accent-hover); }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+    #status {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    #status.show { display: block; }
+    #status.ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    #status.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    #status.busy { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    #preview {
+      margin-top: 1rem;
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: none;
+    }
+    #preview.show { display: block; }
+    .parts { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
+    .drop {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .drop.dragover { border-color: var(--accent); background: #eff6ff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>不织布自动分层排版</h1>
+    <p class="sub">上传图案 → 自动按颜色分区 → 生成 A4 PDF 切割图纸（无需手动魔棒）</p>
+
+    <div class="card">
+      <div class="drop" id="dropZone">
+        <p>点击或拖拽图片到此处</p>
+        <p style="font-size:0.8rem">支持 PNG / JPG，建议为色块清晰的平面图案</p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden />
+
+      <div class="row" style="margin-top:1rem">
+        <div>
+          <label>最大颜色数 <span class="range-val" id="maxColorsVal">24</span></label>
+          <input type="range" id="maxColors" min="8" max="48" value="24" />
+        </div>
+        <div>
+          <label>排版缩放 <span class="range-val" id="scaleVal">100%</span></label>
+          <input type="range" id="scale" min="50" max="150" value="100" />
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>部件间距 (px) <span class="range-val" id="spacingVal">10</span></label>
+          <input type="range" id="spacing" min="0" max="40" value="10" />
+        </div>
+        <div>
+          <label>PDF 留白 (mm) <span class="range-val" id="marginVal">15</span></label>
+          <input type="range" id="margin" min="5" max="30" value="15" />
+        </div>
+      </div>
+
+      <button type="button" id="btnRun" disabled>生成 PDF 图纸</button>
+      <div id="status"></div>
+      <img id="preview" alt="排版预览" />
+      <div class="parts" id="partsList"></div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const dropZone = document.getElementById("dropZone");
+    const btnRun = document.getElementById("btnRun");
+    const statusEl = document.getElementById("status");
+    const preview = document.getElementById("preview");
+    const partsList = document.getElementById("partsList");
+
+    let selectedFile = null;
+
+    function bindRange(id, valId, fmt = (v) => v) {
+      const el = document.getElementById(id);
+      const val = document.getElementById(valId);
+      el.addEventListener("input", () => { val.textContent = fmt(el.value); });
+    }
+    bindRange("maxColors", "maxColorsVal");
+    bindRange("scale", "scaleVal", (v) => v + "%");
+    bindRange("spacing", "spacingVal");
+    bindRange("margin", "marginVal", (v) => v + " mm");
+
+    function setStatus(msg, kind) {
+      statusEl.textContent = msg;
+      statusEl.className = "show " + kind;
+    }
+
+    function onFile(f) {
+      if (!f || !f.type.startsWith("image/")) return;
+      selectedFile = f;
+      btnRun.disabled = false;
+      dropZone.querySelector("p").textContent = "已选择: " + f.name;
+      preview.classList.remove("show");
+      partsList.textContent = "";
+      setStatus("", "");
+      statusEl.className = "";
+    }
+
+    dropZone.addEventListener("click", () => fileInput.click());
+    fileInput.addEventListener("change", (e) => onFile(e.target.files[0]));
+    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
+    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+    dropZone.addEventListener("drop", (e) => {
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
+      onFile(e.dataTransfer.files[0]);
+    });
+
+    btnRun.addEventListener("click", async () => {
+      if (!selectedFile) return;
+      btnRun.disabled = true;
+      setStatus("正在自动分层与排版，请稍候…", "busy");
+
+      const fd = new FormData();
+      fd.append("file", selectedFile);
+      fd.append("max_colors", document.getElementById("maxColors").value);
+      fd.append("min_area_ratio", "0.0008");
+      fd.append("scale_percent", document.getElementById("scale").value);
+      fd.append("spacing_px", document.getElementById("spacing").value);
+      fd.append("margin_mm", document.getElementById("margin").value);
+
+      try {
+        const metaRes = await fetch("/api/process/full", { method: "POST", body: fd });
+        if (!metaRes.ok) {
+          const err = await metaRes.json().catch(() => ({}));
+          throw new Error(err.detail || metaRes.statusText);
+        }
+        const data = await metaRes.json();
+        setStatus(`完成：识别 ${data.part_count} 个部件`, "ok");
+        partsList.textContent = "部件: " + (data.part_names || []).join(" · ");
+        if (data.preview_png_base64) {
+          preview.src = "data:image/png;base64," + data.preview_png_base64;
+          preview.classList.add("show");
+        }
+        if (data.pdf_base64) {
+          const bin = atob(data.pdf_base64);
+          const arr = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+          const blob = new Blob([arr], { type: "application/pdf" });
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "layout_1to1.pdf";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }
+      } catch (e) {
+        setStatus("失败: " + e.message, "err");
+      } finally {
+        btnRun.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
