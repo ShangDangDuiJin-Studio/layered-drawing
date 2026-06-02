@@ -20,6 +20,7 @@ class ProcessOptions:
     scale_percent: float = 100.0
     spacing_px: int = 10
     margin_mm: float = 15.0
+    part_expand_mm: float = 3.0
 
 
 @dataclass
@@ -59,7 +60,7 @@ def process_image(data: bytes, options: ProcessOptions | None = None) -> Process
     layout_cfg = LayoutConfig(scale_percent=opts.scale_percent, spacing_px=opts.spacing_px)
     placed, layout_canvas = flow_layout(parts, canvas_width=w, canvas_height=h, cfg=layout_cfg)
 
-    pdf_cfg = PdfConfig(margin_mm=opts.margin_mm)
+    pdf_cfg = PdfConfig(margin_mm=opts.margin_mm, part_expand_mm=opts.part_expand_mm)
     pdf_bytes = export_layout_pdf(placed, cfg=pdf_cfg)
 
     return ProcessResult(

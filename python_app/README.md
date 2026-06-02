@@ -1,75 +1,53 @@
-# 不织布自动分层 · Python 版
+# 不织布分层排版工具（Python）
 
-前端上传图片 → 后端**全自动颜色分区** → 流式排版 → 导出 **A4 PDF** 切割图纸。
+**纯 Python，不需要 MATLAB。**
 
-对应原 MATLAB `TextileLayerApp` 中 Tab1（魔棒分层）+ Tab2（排版 + PDF）的无人值守流程。
+单页界面：**手动魔棒分层** + **自动换行排版** + **PDF 导出**（部件外扩 3mm）。
 
-## 环境
+> 说明：这里是「自动排版」，不是「自动分层」。分层靠魔棒手点选区生成部件；排版靠「自动换行与排版」按钮。
 
-- Python 3.10+
-- 依赖见 `requirements.txt`
-
-## 安装与启动
+## 快速开始
 
 ```bash
 cd python_app
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 python run.py
 ```
 
-浏览器打开：**http://127.0.0.1:8765**
+浏览器打开 http://127.0.0.1:8765
 
-## API
+## 界面功能（与 MATLAB 简化版一致）
 
-| 接口 | 说明 |
-|------|------|
-| `GET /api/health` | 健康检查 |
-| `POST /api/process/pdf` | 上传图片，直接返回 PDF 文件 |
-| `POST /api/process/full` | 上传图片，返回 JSON（含 base64 预览 + PDF） |
+### 分层编辑
+- 导入图片
+- 魔棒选区（点击画布）
+- 生成图层 / 取消选区
+- 删除 / 合并部件
 
-表单字段（均可选）：
+### 排版输出
+- **自动换行与排版** → 右侧显示排版预览图
+- **动态缩放** → 实时重排
+- **动态间距** → 实时重排
+- **多选相邻两项** → 只调整这两项之间的间距
+- **单击列表某项** → 预览单个部件
+- **PDF 导出** → 1:1 矢量 PDF，部件外扩 3mm
 
-- `file` — 图片文件
-- `max_colors` — 最大颜色簇数（默认 24）
-- `min_area_ratio` — 最小区域占比（默认 0.0008）
-- `scale_percent` — 排版缩放 %（默认 100）
-- `spacing_px` — 部件间距（默认 10）
-- `margin_mm` — PDF 四边留白 mm（默认 15）
+## 不包含
+部件命名、不透明度、上移下移、切换可见、取色来源、手动描边添加、自动颜色分层
 
-### 命令行示例
-
-```bash
-curl -X POST http://127.0.0.1:8765/api/process/pdf \
-  -F "file=@your_pattern.png" \
-  -o layout_1to1.pdf
-```
-
-## 算法说明
-
-1. **自动分层**（替代魔棒）：颜色量化 + 连通域 → 每个色块区域为一个部件；自动剔除边框背景色。
-2. **排版**：与 MATLAB `applyCFlowLayout` 相同的从左到右、自动换行逻辑。
-3. **PDF**：按部件轮廓 `patch` 填色，单页 A4，内容过大时等比缩小至可打印区。
-
-## 适用图片
-
-- 适合：色块分明的不织布/卡通平面图（类似原工具预设部件图）
-- 不适合：照片、渐变、纹理复杂图（需后续接入 SAM 等模型）
-
-## 目录结构
+## 目录
 
 ```
 python_app/
   run.py
-  requirements.txt
   backend/
-    main.py          # FastAPI
-    pipeline.py      # 串联流程
-    segmentation.py  # 自动分层
-    layout.py        # 排版
-    pdf_export.py    # PDF
-    contours.py
+    main.py       # API
+    editor.py     # 分层 + 排版状态
+    layout.py     # 换行排版算法
+    pdf_export.py # PDF（3mm 外扩）
+    wand.py       # 魔棒
   frontend/
-    index.html
+    index.html    # 单页 Web UI
 ```

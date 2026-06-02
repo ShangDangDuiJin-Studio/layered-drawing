@@ -1,8 +1,8 @@
-"""Flow layout for cut parts (matches MATLAB Tab2 applyCFlowLayout logic)."""
+"""Flow layout for cut parts (matches MATLAB applyCFlowLayout)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import cv2
 import numpy as np
@@ -14,13 +14,14 @@ from .segmentation import LayerPart
 class LayoutConfig:
     scale_percent: float = 100.0
     spacing_px: int = 10
-    margin_px: int = 10
+    margin_px: int | None = None
+    gaps: list[int] = field(default_factory=list)
 
 
 @dataclass
 class PlacedPart:
     name: str
-    rgba: np.ndarray  # full canvas with part at offset — stored as crop + position
+    rgba: np.ndarray
     x: int
     y: int
     width: int
@@ -36,6 +37,13 @@ def _bbox_from_layer(rgba: np.ndarray) -> tuple[int, int, int, int] | None:
     return int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
 
 
+def _normalize_gaps(n_parts: int, spacing_px: int, gaps: list[int] | None) -> list[int]:
+    need = max(0, n_parts - 1)
+    if not gaps or len(gaps) != need:
+        return [spacing_px] * need
+    return list(gaps)
+
+
 def flow_layout(
     parts: list[LayerPart],
     canvas_width: int,
@@ -46,8 +54,7 @@ def flow_layout(
         cfg = LayoutConfig()
 
     scale = cfg.scale_percent / 100.0
-    margin = cfg.margin_px
-    gap = cfg.spacing_px
+    margin = cfg.spacing_px if cfg.margin_px is None else cfg.margin_px
     w = canvas_width
 
     crops: list[tuple[LayerPart, np.ndarray]] = []
@@ -63,9 +70,12 @@ def flow_layout(
             crop = cv2.resize(crop, (nw, nh), interpolation=cv2.INTER_NEAREST)
         crops.append((p, crop))
 
-    if not crops:
+    n_part = len(crops)
+    if n_part == 0:
         empty = np.zeros((canvas_height, w, 4), dtype=np.uint8)
         return [], empty
+
+    gaps = _normalize_gaps(n_part, margin, cfg.gaps)
 
     x = 1 + margin
     y = 1 + margin
@@ -73,7 +83,7 @@ def flow_layout(
     max_bottom = y
     placements: list[tuple[LayerPart, np.ndarray, int, int]] = []
 
-    for p, crop in crops:
+    for n, (p, crop) in enumerate(crops):
         ph, pw = crop.shape[0], crop.shape[1]
         if x + pw - 1 > w - margin:
             x = 1 + margin
@@ -81,7 +91,8 @@ def flow_layout(
             row_h = 0
         max_bottom = max(max_bottom, y + ph - 1)
         placements.append((p, crop, x, y))
-        x = x + pw + gap
+        gap_after = margin if n >= n_part - 1 else gaps[n]
+        x = x + pw + gap_after
         row_h = max(row_h, ph)
 
     canvas_h = max(canvas_height, max_bottom + margin)

@@ -3,218 +3,333 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>不织布自动分层 · PDF 导出</title>
+  <title>不织布分层排版 · Python</title>
   <style>
-    :root {
-      --bg: #f4f4f6;
-      --card: #fff;
-      --accent: #2563eb;
-      --accent-hover: #1d4ed8;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #e2e8f0;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.5;
-    }
-    .wrap { max-width: 720px; margin: 0 auto; padding: 2rem 1rem 4rem; }
-    h1 { font-size: 1.5rem; margin: 0 0 0.25rem; }
-    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
-      margin-bottom: 1rem;
-    }
-    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.35rem; }
-    input[type="file"], input[type="range"], input[type="number"] {
-      width: 100%;
-      margin-bottom: 0.75rem;
-    }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
-    .range-val { font-size: 0.8rem; color: var(--muted); float: right; }
-    button {
-      width: 100%;
-      padding: 0.85rem 1rem;
-      font-size: 1rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      background: var(--accent);
-      color: #fff;
-      margin-top: 0.5rem;
-    }
-    button:hover { background: var(--accent-hover); }
-    button:disabled { opacity: 0.55; cursor: not-allowed; }
-    #status {
-      margin-top: 1rem;
-      padding: 0.75rem 1rem;
-      border-radius: 8px;
-      font-size: 0.9rem;
-      display: none;
-    }
-    #status.show { display: block; }
-    #status.ok { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-    #status.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    #status.busy { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-    #preview {
-      margin-top: 1rem;
-      max-width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      display: none;
-    }
-    #preview.show { display: block; }
-    .parts { font-size: 0.85rem; color: var(--muted); margin-top: 0.5rem; }
-    .drop {
-      border: 2px dashed var(--border);
-      border-radius: 10px;
-      padding: 2rem;
-      text-align: center;
-      color: var(--muted);
-      cursor: pointer;
-      transition: border-color .15s, background .15s;
-    }
-    .drop.dragover { border-color: var(--accent); background: #eff6ff; }
+    :root { --bg:#f0f2f5; --card:#fff; --accent:#2563eb; --accent2:#059669; --text:#1e293b; --muted:#64748b; --border:#e2e8f0; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif; background:var(--bg); color:var(--text); }
+    .wrap { max-width:1200px; margin:0 auto; padding:1rem; }
+    h1 { font-size:1.35rem; margin:0 0 .2rem; }
+    .sub { color:var(--muted); font-size:.88rem; margin-bottom:1rem; }
+    .card { background:var(--card); border-radius:12px; padding:1rem; box-shadow:0 1px 3px rgba(0,0,0,.07); margin-bottom:1rem; }
+    .card h2 { font-size:1rem; margin:0 0 .75rem; color:#334155; }
+    .grid2 { display:grid; grid-template-columns:1fr 260px; gap:1rem; }
+    .grid-layout { display:grid; grid-template-columns:1fr 260px; gap:1rem; }
+    @media(max-width:800px){ .grid2,.grid-layout{ grid-template-columns:1fr; } }
+    .canvas-box { background:#ddd; border-radius:8px; overflow:hidden; min-height:180px; }
+    canvas { display:block; max-width:100%; cursor:crosshair; }
+    #layoutCanvas { cursor:default; }
+    label { font-size:.82rem; font-weight:600; display:block; margin:.5rem 0 .25rem; }
+    input[type=range] { width:100%; }
+    .range-val { float:right; font-weight:normal; color:var(--muted); }
+    button { padding:.55rem .85rem; font-size:.88rem; font-weight:600; border:none; border-radius:7px; cursor:pointer; background:var(--accent); color:#fff; }
+    button.green { background:var(--accent2); }
+    button.secondary { background:#e2e8f0; color:var(--text); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .btn-row { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0; }
+    .drop { border:2px dashed var(--border); border-radius:8px; padding:1.2rem; text-align:center; color:var(--muted); cursor:pointer; font-size:.9rem; }
+    select[multiple] { width:100%; min-height:120px; font-size:.85rem; }
+    #status { margin-top:.6rem; padding:.6rem; border-radius:6px; font-size:.85rem; display:none; }
+    #status.show { display:block; }
+    #status.ok { background:#ecfdf5; color:#065f46; }
+    #status.err { background:#fef2f2; color:#991b1b; }
+    #status.info { background:#eff6ff; color:#1e40af; }
+    .hint { font-size:.78rem; color:var(--muted); margin:.35rem 0; }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>不织布自动分层排版</h1>
-    <p class="sub">上传图案 → 自动按颜色分区 → 生成 A4 PDF 切割图纸（无需手动魔棒）</p>
+<div class="wrap">
+  <h1>不织布分层排版工具</h1>
+  <p class="sub">Python 版 · 手动魔棒分层 + 自动换行排版 · PDF 部件外扩 3mm</p>
 
-    <div class="card">
-      <div class="drop" id="dropZone">
-        <p>点击或拖拽图片到此处</p>
-        <p style="font-size:0.8rem">支持 PNG / JPG，建议为色块清晰的平面图案</p>
+  <!-- 分层编辑 -->
+  <div class="card">
+    <h2>分层编辑</h2>
+    <div class="grid2">
+      <div>
+        <div class="drop" id="dropZone">点击或拖拽导入图片</div>
+        <input type="file" id="fileInput" accept="image/*" hidden />
+        <div class="canvas-box" style="margin-top:.75rem"><canvas id="editCanvas"></canvas></div>
+        <p class="hint">在左图点击 = 魔棒选区 → 点「生成图层」</p>
       </div>
-      <input type="file" id="fileInput" accept="image/*" hidden />
-
-      <div class="row" style="margin-top:1rem">
-        <div>
-          <label>最大颜色数 <span class="range-val" id="maxColorsVal">24</span></label>
-          <input type="range" id="maxColors" min="8" max="48" value="24" />
+      <div>
+        <label>编辑区部件列表（可多选删除/合并）</label>
+        <select id="editLayerList" multiple size="7"></select>
+        <div class="btn-row">
+          <button id="btnMake">生成图层</button>
+          <button class="secondary" id="btnCancel">取消选区</button>
         </div>
-        <div>
-          <label>排版缩放 <span class="range-val" id="scaleVal">100%</span></label>
-          <input type="range" id="scale" min="50" max="150" value="100" />
-        </div>
-      </div>
-      <div class="row">
-        <div>
-          <label>部件间距 (px) <span class="range-val" id="spacingVal">10</span></label>
-          <input type="range" id="spacing" min="0" max="40" value="10" />
-        </div>
-        <div>
-          <label>PDF 留白 (mm) <span class="range-val" id="marginVal">15</span></label>
-          <input type="range" id="margin" min="5" max="30" value="15" />
+        <div class="btn-row">
+          <button class="secondary" id="btnDelete">删除部件</button>
+          <button class="secondary" id="btnMerge">合并部件</button>
         </div>
       </div>
-
-      <button type="button" id="btnRun" disabled>生成 PDF 图纸</button>
-      <div id="status"></div>
-      <img id="preview" alt="排版预览" />
-      <div class="parts" id="partsList"></div>
     </div>
   </div>
 
-  <script>
-    const fileInput = document.getElementById("fileInput");
-    const dropZone = document.getElementById("dropZone");
-    const btnRun = document.getElementById("btnRun");
-    const statusEl = document.getElementById("status");
-    const preview = document.getElementById("preview");
-    const partsList = document.getElementById("partsList");
+  <!-- 排版输出 -->
+  <div class="card">
+    <h2>排版输出</h2>
+    <div class="grid-layout">
+      <div>
+        <div class="canvas-box"><canvas id="layoutCanvas"></canvas></div>
+        <p class="hint" id="layoutHint">点击「自动换行与排版」后在此显示预览</p>
+      </div>
+      <div>
+        <button class="green" id="btnAutoLayout" style="width:100%">自动换行与排版</button>
 
-    let selectedFile = null;
+        <label>动态缩放 <span class="range-val" id="scaleVal">100%</span></label>
+        <input type="range" id="scaleSlider" min="30" max="200" value="100" />
 
-    function bindRange(id, valId, fmt = (v) => v) {
-      const el = document.getElementById(id);
-      const val = document.getElementById(valId);
-      el.addEventListener("input", () => { val.textContent = fmt(el.value); });
+        <label id="spacingLabel">动态间距 <span class="range-val" id="spacingVal">10 px</span></label>
+        <input type="range" id="spacingSlider" min="0" max="120" value="10" />
+
+        <label>排版部件列表（Ctrl/⌘+点击 多选相邻两项调间距）</label>
+        <select id="layoutPartList" multiple size="6"></select>
+
+        <button id="btnExportPdf" style="width:100%;margin-top:.6rem">1:1 矢量 PDF 导出</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="status"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const editCanvas = $('editCanvas');
+const editCtx = editCanvas.getContext('2d');
+const layoutCanvas = $('layoutCanvas');
+const layoutCtx = layoutCanvas.getContext('2d');
+let editImg = new Image();
+let wandContours = [];
+let hasLaidOut = false;
+
+function setStatus(msg, kind='info') {
+  const el = $('status');
+  el.textContent = msg;
+  el.className = 'show ' + kind;
+}
+
+function bindRange(sliderId, valId, fmt=v=>v, onChange) {
+  const el = $(sliderId), val = $(valId);
+  el.addEventListener('input', () => {
+    val.textContent = fmt(el.value);
+    if (onChange) onChange();
+  });
+}
+
+function editSelected() {
+  return Array.from($('editLayerList').selectedOptions).map(o => +o.value);
+}
+
+function layoutSelected() {
+  return Array.from($('layoutPartList').selectedOptions).map(o => +o.value);
+}
+
+async function refreshEditLayers() {
+  const res = await fetch('/api/state');
+  const data = await res.json();
+  const sel = $('editLayerList');
+  sel.innerHTML = '';
+  (data.layers || []).forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.index;
+    o.textContent = `${l.index + 1}. ${l.name}`;
+    sel.appendChild(o);
+  });
+}
+
+async function refreshLayoutParts() {
+  const res = await fetch('/api/state');
+  const data = await res.json();
+  const sel = $('layoutPartList');
+  sel.innerHTML = '';
+  (data.layout_parts || []).forEach(l => {
+    const o = document.createElement('option');
+    o.value = l.index;
+    o.textContent = `${l.index}. ${l.name}`;
+    sel.appendChild(o);
+  });
+  hasLaidOut = data.has_laid_out;
+}
+
+async function refreshEditPreview() {
+  const res = await fetch('/api/edit/preview');
+  if (!res.ok) return;
+  const blob = await res.blob();
+  editImg.onload = () => {
+    editCanvas.width = editImg.width;
+    editCanvas.height = editImg.height;
+    redrawEdit();
+  };
+  editImg.src = URL.createObjectURL(blob);
+}
+
+function redrawEdit() {
+  editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+  editCtx.drawImage(editImg, 0, 0);
+  editCtx.strokeStyle = '#0ff';
+  editCtx.lineWidth = 2;
+  wandContours.forEach(c => {
+    if (c.length < 2) return;
+    editCtx.beginPath();
+    c.forEach((p, i) => i ? editCtx.lineTo(p[0], p[1]) : editCtx.moveTo(p[0], p[1]));
+    editCtx.closePath();
+    editCtx.stroke();
+  });
+}
+
+function showLayoutPreview(b64) {
+  if (!b64) return;
+  const img = new Image();
+  img.onload = () => {
+    layoutCanvas.width = img.width;
+    layoutCanvas.height = img.height;
+    layoutCtx.clearRect(0, 0, img.width, img.height);
+    layoutCtx.drawImage(img, 0, 0);
+    $('layoutHint').textContent = '排版预览';
+  };
+  img.src = 'data:image/png;base64,' + b64;
+}
+
+async function importFile(file) {
+  const fd = new FormData();
+  fd.append('file', file);
+  setStatus('导入中…', 'info');
+  const res = await fetch('/api/edit/import', { method:'POST', body:fd });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail || '导入失败', 'err');
+  wandContours = [];
+  $('dropZone').textContent = '已导入: ' + file.name;
+  await refreshEditLayers();
+  await refreshEditPreview();
+  await refreshLayoutParts();
+  layoutCtx.clearRect(0, 0, layoutCanvas.width, layoutCanvas.height);
+  $('layoutHint').textContent = '点击「自动换行与排版」后在此显示预览';
+  setStatus('已导入，点击图画布进行魔棒选区', 'ok');
+}
+
+$('dropZone').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => e.target.files[0] && importFile(e.target.files[0]);
+$('dropZone').ondragover = e => e.preventDefault();
+$('dropZone').ondrop = e => { e.preventDefault(); importFile(e.dataTransfer.files[0]); };
+
+editCanvas.addEventListener('click', async ev => {
+  const rect = editCanvas.getBoundingClientRect();
+  const x = (ev.clientX - rect.left) * (editCanvas.width / rect.width);
+  const y = (ev.clientY - rect.top) * (editCanvas.height / rect.height);
+  const res = await fetch('/api/edit/wand', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({x,y}) });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail || '选区失败', 'err');
+  wandContours = data.contours || [];
+  redrawEdit();
+  setStatus(`选区约 ${data.selected_pixels} 像素`, 'ok');
+});
+
+$('btnMake').onclick = async () => {
+  const res = await fetch('/api/edit/make-layer', { method:'POST' });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail, 'err');
+  wandContours = [];
+  await refreshEditLayers();
+  await refreshEditPreview();
+  await refreshLayoutParts();
+  setStatus(`已生成 ${data.name}`, 'ok');
+};
+
+$('btnCancel').onclick = async () => {
+  await fetch('/api/edit/cancel', { method:'POST' });
+  wandContours = []; redrawEdit();
+};
+
+$('btnDelete').onclick = async () => {
+  const res = await fetch('/api/edit/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({indices: editSelected()}) });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail, 'err');
+  wandContours = [];
+  await refreshEditLayers(); await refreshEditPreview(); await refreshLayoutParts();
+};
+
+$('btnMerge').onclick = async () => {
+  const res = await fetch('/api/edit/merge', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({indices: editSelected()}) });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail, 'err');
+  wandContours = [];
+  await refreshEditLayers(); await refreshEditPreview(); await refreshLayoutParts();
+  setStatus(`已合并为 ${data.name}`, 'ok');
+};
+
+$('btnAutoLayout').onclick = async () => {
+  setStatus('排版中…', 'info');
+  const res = await fetch('/api/layout/auto', { method:'POST' });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail, 'err');
+  showLayoutPreview(data.preview_png_base64);
+  await refreshLayoutParts();
+  setStatus(data.message, 'ok');
+};
+
+async function updateLayout(params) {
+  const res = await fetch('/api/layout/update', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ ...params, selected_positions: layoutSelected() })
+  });
+  const data = await res.json();
+  if (data.spacing_label) $('spacingLabel').firstChild.textContent = data.spacing_label.split(':')[0] + ': ';
+  if (data.spacing_label) $('spacingVal').textContent = (data.spacing_px ?? $('spacingSlider').value) + ' px';
+  if (data.preview_png_base64) showLayoutPreview(data.preview_png_base64);
+  if (data.message) setStatus(data.message, data.has_laid_out ? 'ok' : 'info');
+}
+
+bindRange('scaleSlider', 'scaleVal', v => v + '%', () => updateLayout({ scale_percent: +$('scaleSlider').value }));
+bindRange('spacingSlider', 'spacingVal', v => v + ' px', () => updateLayout({ spacing_px: +$('spacingSlider').value }));
+
+$('layoutPartList').addEventListener('change', async () => {
+  const sel = layoutSelected();
+  if (sel.length === 2 && sel[1] === sel[0] + 1) {
+    $('spacingLabel').firstChild.textContent = '两部件间距: ';
+    setStatus('已选中相邻两部件：拖动「动态间距」只改它们之间的间距', 'info');
+    if (hasLaidOut) await updateLayout({ spacing_px: +$('spacingSlider').value });
+    return;
+  }
+  if (sel.length === 1) {
+    const res = await fetch('/api/layout/preview-part', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ list_pos: sel[0] }) });
+    const data = await res.json();
+    if (res.ok) {
+      showLayoutPreview(data.preview_png_base64);
+      setStatus('预览部件：' + data.name, 'ok');
     }
-    bindRange("maxColors", "maxColorsVal");
-    bindRange("scale", "scaleVal", (v) => v + "%");
-    bindRange("spacing", "spacingVal");
-    bindRange("margin", "marginVal", (v) => v + " mm");
-
-    function setStatus(msg, kind) {
-      statusEl.textContent = msg;
-      statusEl.className = "show " + kind;
+    return;
+  }
+  if (hasLaidOut) {
+    const res = await fetch('/api/layout/preview');
+    if (res.ok) {
+      const blob = await res.blob();
+      const img = new Image();
+      img.onload = () => { layoutCanvas.width=img.width; layoutCanvas.height=img.height; layoutCtx.drawImage(img,0,0); };
+      img.src = URL.createObjectURL(blob);
     }
+  }
+});
 
-    function onFile(f) {
-      if (!f || !f.type.startsWith("image/")) return;
-      selectedFile = f;
-      btnRun.disabled = false;
-      dropZone.querySelector("p").textContent = "已选择: " + f.name;
-      preview.classList.remove("show");
-      partsList.textContent = "";
-      setStatus("", "");
-      statusEl.className = "";
-    }
-
-    dropZone.addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", (e) => onFile(e.target.files[0]));
-    dropZone.addEventListener("dragover", (e) => { e.preventDefault(); dropZone.classList.add("dragover"); });
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
-    dropZone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropZone.classList.remove("dragover");
-      onFile(e.dataTransfer.files[0]);
-    });
-
-    btnRun.addEventListener("click", async () => {
-      if (!selectedFile) return;
-      btnRun.disabled = true;
-      setStatus("正在自动分层与排版，请稍候…", "busy");
-
-      const fd = new FormData();
-      fd.append("file", selectedFile);
-      fd.append("max_colors", document.getElementById("maxColors").value);
-      fd.append("min_area_ratio", "0.0008");
-      fd.append("scale_percent", document.getElementById("scale").value);
-      fd.append("spacing_px", document.getElementById("spacing").value);
-      fd.append("margin_mm", document.getElementById("margin").value);
-
-      try {
-        const metaRes = await fetch("/api/process/full", { method: "POST", body: fd });
-        if (!metaRes.ok) {
-          const err = await metaRes.json().catch(() => ({}));
-          throw new Error(err.detail || metaRes.statusText);
-        }
-        const data = await metaRes.json();
-        setStatus(`完成：识别 ${data.part_count} 个部件`, "ok");
-        partsList.textContent = "部件: " + (data.part_names || []).join(" · ");
-        if (data.preview_png_base64) {
-          preview.src = "data:image/png;base64," + data.preview_png_base64;
-          preview.classList.add("show");
-        }
-        if (data.pdf_base64) {
-          const bin = atob(data.pdf_base64);
-          const arr = new Uint8Array(bin.length);
-          for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-          const blob = new Blob([arr], { type: "application/pdf" });
-          const a = document.createElement("a");
-          a.href = URL.createObjectURL(blob);
-          a.download = "layout_1to1.pdf";
-          a.click();
-          URL.revokeObjectURL(a.href);
-        }
-      } catch (e) {
-        setStatus("失败: " + e.message, "err");
-      } finally {
-        btnRun.disabled = false;
-      }
-    });
-  </script>
+$('btnExportPdf').onclick = async () => {
+  setStatus('导出 PDF…', 'info');
+  const res = await fetch('/api/layout/export-pdf', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ margin_mm: 15, part_expand_mm: 3 })
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    return setStatus(err.detail || '请先完成排版', 'err');
+  }
+  const blob = await res.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'layout_1to1.pdf';
+  a.click();
+  setStatus('PDF 已导出（部件外扩 3mm）', 'ok');
+};
+</script>
 </body>
 </html>
