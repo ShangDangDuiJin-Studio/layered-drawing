@@ -50,6 +50,14 @@ class PdfExportRequest(BaseModel):
     part_expand_mm: float = 3.0
 
 
+class BorderColorRequest(BaseModel):
+    """选区高亮色：rgb 为 0~1 浮点，或传 hex（#RRGGBB）。"""
+    r: float | None = None
+    g: float | None = None
+    b: float | None = None
+    hex: str | None = None
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -88,12 +96,6 @@ def edit_wand(req: WandRequest):
         raise HTTPException(422, str(e)) from e
 
 
-@app.post("/api/edit/cancel")
-def edit_cancel():
-    editor.cancel_selection()
-    return {"ok": True}
-
-
 @app.post("/api/edit/make-layer")
 def edit_make_layer():
     try:
@@ -102,18 +104,23 @@ def edit_make_layer():
         raise HTTPException(422, str(e)) from e
 
 
-@app.post("/api/edit/delete")
-def edit_delete(req: IndicesRequest):
-    try:
-        return editor.delete_layers(req.indices)
-    except ValueError as e:
-        raise HTTPException(422, str(e)) from e
-
-
 @app.post("/api/edit/merge")
 def edit_merge(req: IndicesRequest):
     try:
         return editor.merge_layers(req.indices)
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+
+
+@app.get("/api/edit/border-color")
+def edit_get_border_color():
+    return editor.border_color_info()
+
+
+@app.post("/api/edit/border-color")
+def edit_set_border_color(req: BorderColorRequest):
+    try:
+        return editor.set_border_color(req.r, req.g, req.b, hex_color=req.hex)
     except ValueError as e:
         raise HTTPException(422, str(e)) from e
 

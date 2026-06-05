@@ -53,14 +53,15 @@
         <p class="hint">在左图点击 = 魔棒选区 → 点「生成图层」</p>
       </div>
       <div>
-        <label>编辑区部件列表（可多选删除/合并）</label>
+        <label>编辑区部件列表（可多选合并）</label>
         <select id="editLayerList" multiple size="7"></select>
         <div class="btn-row">
           <button id="btnMake">生成图层</button>
-          <button class="secondary" id="btnCancel">取消选区</button>
         </div>
+        <label>选区高亮色</label>
+        <input type="color" id="borderColor" value="#00ffff" title="魔棒选区轮廓颜色" style="width:100%;height:36px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer" />
+        <p class="hint">仅影响魔棒选区轮廓显示；部件蒙版边框在 PDF 中仍为黑色</p>
         <div class="btn-row">
-          <button class="secondary" id="btnDelete">删除部件</button>
           <button class="secondary" id="btnMerge">合并部件</button>
         </div>
       </div>
@@ -104,6 +105,19 @@ const layoutCtx = layoutCanvas.getContext('2d');
 let editImg = new Image();
 let wandContours = [];
 let hasLaidOut = false;
+let borderColorHex = '#00ffff';
+
+function rgbToHex(rgb) {
+  if (!rgb || rgb.length < 3) return borderColorHex;
+  const h = n => Math.max(0, Math.min(255, Math.round(n * 255))).toString(16).padStart(2, '0');
+  return '#' + h(rgb[0]) + h(rgb[1]) + h(rgb[2]);
+}
+
+async function syncBorderColorFromState(data) {
+  if (data.border_color_hex) borderColorHex = data.border_color_hex;
+  else if (data.border_color) borderColorHex = rgbToHex(data.border_color);
+  $('borderColor').value = borderColorHex;
+}
 
 function setStatus(msg, kind='info') {
   const el = $('status');
@@ -169,7 +183,7 @@ async function refreshEditPreview() {
 function redrawEdit() {
   editCtx.clearRect(0, 0, editCanvas.width, editCanvas.height);
   editCtx.drawImage(editImg, 0, 0);
-  editCtx.strokeStyle = '#0ff';
+  editCtx.strokeStyle = borderColorHex;
   editCtx.lineWidth = 2;
   wandContours.forEach(c => {
     if (c.length < 2) return;
@@ -223,8 +237,24 @@ editCanvas.addEventListener('click', async ev => {
   const data = await res.json();
   if (!res.ok) return setStatus(data.detail || '选区失败', 'err');
   wandContours = data.contours || [];
+  if (data.border_color_hex) borderColorHex = data.border_color_hex;
+  else if (data.border_color) borderColorHex = rgbToHex(data.border_color);
+  $('borderColor').value = borderColorHex;
   redrawEdit();
   setStatus(`选区约 ${data.selected_pixels} 像素`, 'ok');
+});
+
+$('borderColor').addEventListener('input', async () => {
+  borderColorHex = $('borderColor').value;
+  const res = await fetch('/api/edit/border-color', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hex: borderColorHex })
+  });
+  const data = await res.json();
+  if (!res.ok) return setStatus(data.detail || '颜色设置失败', 'err');
+  if (data.border_color_hex) borderColorHex = data.border_color_hex;
+  redrawEdit();
 });
 
 $('btnMake').onclick = async () => {
@@ -236,19 +266,6 @@ $('btnMake').onclick = async () => {
   await refreshEditPreview();
   await refreshLayoutParts();
   setStatus(`已生成 ${data.name}`, 'ok');
-};
-
-$('btnCancel').onclick = async () => {
-  await fetch('/api/edit/cancel', { method:'POST' });
-  wandContours = []; redrawEdit();
-};
-
-$('btnDelete').onclick = async () => {
-  const res = await fetch('/api/edit/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({indices: editSelected()}) });
-  const data = await res.json();
-  if (!res.ok) return setStatus(data.detail, 'err');
-  wandContours = [];
-  await refreshEditLayers(); await refreshEditPreview(); await refreshLayoutParts();
 };
 
 $('btnMerge').onclick = async () => {
@@ -330,6 +347,11 @@ $('btnExportPdf').onclick = async () => {
   a.click();
   setStatus('PDF 已导出（部件外扩 3mm）', 'ok');
 };
+
+(async () => {
+  const res = await fetch('/api/state');
+  if (res.ok) await syncBorderColorFromState(await res.json());
+})();
 </script>
 </body>
 </html>

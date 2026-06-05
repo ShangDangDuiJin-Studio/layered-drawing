@@ -83,12 +83,8 @@ def wand_at(x: float, y: float) -> dict:
     return {
         "selected_pixels": int(np.count_nonzero(s.cur_mask)),
         "contours": [c.tolist() for c in contours],
-        "border_color": list(s.border_color),
+        **border_color_info(),
     }
-
-
-def cancel_selection() -> None:
-    get_session().cur_mask = None
 
 
 def make_layer() -> dict:
@@ -110,21 +106,6 @@ def make_layer() -> dict:
     s.cur_mask = None
     _invalidate_layout(s)
     return {"name": name, "layer_count": len(s.layers)}
-
-
-def delete_layers(indices: list[int]) -> dict:
-    s = get_session()
-    if not indices:
-        raise ValueError("请先选中要删除的部件")
-    if any(i == 0 for i in indices):
-        raise ValueError("背景层不可删除")
-
-    keep = [i for i in range(len(s.layers)) if i not in set(indices)]
-    s.layers = [s.layers[i] for i in keep]
-    s.current_layer_idx = min(max(s.current_layer_idx, 0), max(0, len(s.layers) - 1))
-    s.cur_mask = None
-    _invalidate_layout(s)
-    return {"layer_count": len(s.layers)}
 
 
 def merge_layers(indices: list[int]) -> dict:
@@ -171,8 +152,46 @@ def list_layout_parts() -> list[dict]:
     return [{"index": i + 1, "name": n} for i, n in enumerate(s.layout_part_names)]
 
 
-def set_border_color(r: float, g: float, b: float) -> None:
-    get_session().border_color = (r, g, b)
+def _clamp01(v: float) -> float:
+    return max(0.0, min(1.0, float(v)))
+
+
+def _parse_hex_color(hex_str: str) -> tuple[float, float, float]:
+    h = hex_str.strip().lstrip("#")
+    if len(h) != 6:
+        raise ValueError("hex 须为 #RRGGBB 或 RRGGBB")
+    try:
+        r = int(h[0:2], 16) / 255.0
+        g = int(h[2:4], 16) / 255.0
+        b = int(h[4:6], 16) / 255.0
+    except ValueError as e:
+        raise ValueError("hex 颜色格式无效") from e
+    return (r, g, b)
+
+
+def border_color_info() -> dict:
+    r, g, b = get_session().border_color
+    ri, gi, bi = int(round(r * 255)), int(round(g * 255)), int(round(b * 255))
+    return {
+        "border_color": [r, g, b],
+        "border_color_hex": f"#{ri:02x}{gi:02x}{bi:02x}",
+    }
+
+
+def set_border_color(
+    r: float | None = None,
+    g: float | None = None,
+    b: float | None = None,
+    *,
+    hex_color: str | None = None,
+) -> dict:
+    if hex_color is not None:
+        get_session().border_color = _parse_hex_color(hex_color)
+    elif r is not None and g is not None and b is not None:
+        get_session().border_color = (_clamp01(r), _clamp01(g), _clamp01(b))
+    else:
+        raise ValueError("请提供 r,g,b（0~1）或 hex（#RRGGBB）")
+    return border_color_info()
 
 
 def edit_preview_png() -> bytes:
@@ -325,5 +344,5 @@ def session_info() -> dict:
         "has_laid_out": s.has_laid_out,
         "layout_scale": s.layout_scale,
         "layout_spacing": s.layout_spacing,
-        "border_color": list(s.border_color),
+        **border_color_info(),
     }
