@@ -1,22 +1,30 @@
-# layered-drawing · 不织布分层排版
+# layered-drawing · 不织布分层工具
 
 **Python 项目，不需要 MATLAB。**
 
-所有功能在 `python_app/` 目录下，详见 [python_app/README.md](python_app/README.md)。
+所有功能在 `python/` 目录下，详见 [python/README.md](python/README.md)。
 
 ## 快速开始
 
 ```bash
-cd python_app
+cd python
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python run.py
+python run_app.py
 ```
 
-浏览器打开 http://127.0.0.1:8765
+直接打开排版 Tab：`python run_layout.py`
+
+## 模块分工
+
+| 文件 | 负责人 |
+|------|--------|
+| `part_ab.py` | A/B — 分层编辑 |
+| `part_c.py` | C — 排版输出、PDF |
+| `main_app.py` | 共用界面与数据同步 |
 
 ## 说明
 
-- 根目录下的 `.m` 文件为早期 MATLAB 原型备份，**不参与运行**
-- 协作开发请只修改 `python_app/` 下的 Python 代码
+- 旧版 `python_app/`（Web 简化版）已移除，当前以 PyQt6 桌面版为准，功能与 MATLAB 原版一致
+- 协作开发请修改 `python/` 下的代码
