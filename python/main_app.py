@@ -70,6 +70,7 @@ class MainApp(QMainWindow):
         self.c_is_previewing_single = False
         self.c_outline_artists: list = []
         self.pdf_margin_mm = 15.0
+        self.pdf_part_expand_mm = 3.0
 
         self._build_ui()
         self.c_status_label.setText("请点击「刷新部件列表」同步分层编辑中的部件")

@@ -225,21 +225,36 @@ def on_c_layer_list_changed(app: MainApp) -> None:
     app.c_status_label.setText(f"预览部件：{name}")
 
 
-def _collect_pdf_parts(layers: List[Layer]) -> List[dict]:
+def _expand_mask_by_mm(mask: np.ndarray, expand_mm: float, mm_per_px: float = 25.4 / 96.0) -> np.ndarray:
+    """将二值掩膜向外扩展指定物理距离（mm）。"""
+    if expand_mm <= 0:
+        return mask
+    radius_px = int(round(expand_mm / mm_per_px))
+    if radius_px <= 0:
+        return mask
+    k = 2 * radius_px + 1
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+    expanded = cv2.dilate(mask.astype(np.uint8), kernel, iterations=1)
+    return expanded > 0
+
+
+def _collect_pdf_parts(layers: List[Layer], expand_mm: float = 3.0) -> List[dict]:
     parts = []
+    mm_per_px = 25.4 / 96.0
     for ly in layers:
         if not ly.visible:
             continue
         img = ensure_rgba(ly.img)
-        m = img[:, :, 3] > 0
-        if not np.any(m):
+        m_orig = img[:, :, 3] > 0
+        if not np.any(m_orig):
             continue
+        m = _expand_mask_by_mm(m_orig, expand_mm, mm_per_px) if expand_mm > 0 else m_orig
         rows, cols = np.where(m)
         contours = get_outline(m.astype(np.uint8) * 255, include_holes=True)
         col = [
-            float(img[m, 0].mean()) / 255.0,
-            float(img[m, 1].mean()) / 255.0,
-            float(img[m, 2].mean()) / 255.0,
+            float(img[m_orig, 0].mean()) / 255.0,
+            float(img[m_orig, 1].mean()) / 255.0,
+            float(img[m_orig, 2].mean()) / 255.0,
         ]
         parts.append(
             {
@@ -273,7 +288,8 @@ def export_pdf(app: MainApp) -> None:
     if not path.lower().endswith(".pdf"):
         path += ".pdf"
     margin_mm = app.pdf_margin_mm
-    parts = _collect_pdf_parts(app.c_laid_out_layers)
+    expand_mm = getattr(app, "pdf_part_expand_mm", 3.0)
+    parts = _collect_pdf_parts(app.c_laid_out_layers, expand_mm=expand_mm)
     if not parts:
         QMessageBox.warning(app, "提示", "没有可导出的部件")
         return
@@ -323,7 +339,8 @@ def export_pdf(app: MainApp) -> None:
             pdf.savefig(fig, format="pdf")
         plt.close(fig)
         app.c_status_label.setText(
-            f"已导出 PDF: {path}（单页 A4，全部 {len(parts)} 个部件，四边 {int(round(margin_mm))}mm 留白）"
+            f"已导出 PDF: {path}（单页 A4，全部 {len(parts)} 个部件，"
+            f"四边 {int(round(margin_mm))}mm 留白，部件外扩 {expand_mm:g}mm）"
         )
     except Exception as e:
         QMessageBox.critical(app, "PDF 导出失败", str(e))

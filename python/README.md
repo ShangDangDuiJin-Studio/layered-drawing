@@ -44,6 +44,6 @@ python run_layout.py   # 直接打开排版输出
 
 - 从分层编辑同步部件
 - 自动换行排版、缩放、间距
-- 导出 1:1 矢量 PDF（单页 A4）
+- 导出 1:1 矢量 PDF（单页 A4，部件轮廓外扩 3mm）
 
 `main_app.py` 中的 `sync_data_from_edit_tab` 是 A/B 与 C 之间的唯一数据接口，与 MATLAB 版约定相同。
